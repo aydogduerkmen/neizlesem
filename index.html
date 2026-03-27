@@ -200,7 +200,7 @@ let totalLoaded = 0;
 
 function tmdbFetch(path, query) {
   const qs = new URLSearchParams({ path, query }).toString();
-  return fetch(`/api/tmdb?${qs}`).then(r => r.json());
+  return fetch(`https://neizlesem.onrender.com/api/tmdb?${qs}`).then(r => r.json());
 }
 
 function switchTab(tab) {
