@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Ne İzlesem</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0d0d0d;
+    --surface: #161616;
+    --surface2: #1e1e1e;
+    --border: rgba(255,255,255,0.07);
+    --border-hover: rgba(255,255,255,0.15);
+    --text: #f0ece4;
+    --text-muted: #888;
+    --text-faint: #555;
+    --accent: #e8c87a;
+    --red: #e07070;
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+  body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; font-weight: 300; min-height: 100vh; }
+  header { padding: 3rem 2rem 2rem; max-width: 1100px; margin: 0 auto; border-bottom: 1px solid var(--border); }
+  .logo { font-family: 'DM Serif Display', serif; font-size: 2rem; color: var(--text); letter-spacing: -0.02em; }
+  .logo span { color: var(--accent); }
+  .tagline { font-size: 0.85rem; color: var(--text-muted); margin-top: 4px; letter-spacing: 0.04em; }
+  .main { max-width: 1100px; margin: 0 auto; padding: 2rem; }
+
+  .tabs { display: flex; gap: 0; margin-bottom: 2rem; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; width: fit-content; }
+  .tab { background: transparent; border: none; color: var(--text-muted); font-family: 'DM Sans', sans-serif; font-size: 13px; padding: 9px 28px; cursor: pointer; transition: background 0.15s, color 0.15s; letter-spacing: 0.02em; }
+  .tab:hover { color: var(--text); }
+  .tab.active { background: var(--surface); color: var(--text); font-weight: 500; }
+
+  .filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 2rem; align-items: end; }
+  .filter-wrap { display: flex; flex-direction: column; gap: 5px; }
+  .filter-label { font-size: 11px; color: var(--text-faint); letter-spacing: 0.06em; text-transform: uppercase; }
+  select { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 13px; padding: 9px 12px; outline: none; cursor: pointer; transition: border-color 0.2s; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23555' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px; }
+  select:hover { border-color: var(--border-hover); }
+
+  .btn-search { background: var(--accent); color: #1a1500; border: none; border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; padding: 10px 24px; cursor: pointer; transition: opacity 0.2s, transform 0.1s; white-space: nowrap; height: 38px; align-self: flex-end; }
+  .btn-search:hover { opacity: 0.88; }
+  .btn-search:active { transform: scale(0.98); }
+  .btn-search:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  .btn-more { display: block; margin: 2rem auto 0; background: transparent; border: 1px solid var(--border-hover); border-radius: var(--radius-sm); color: var(--text-muted); font-family: 'DM Sans', sans-serif; font-size: 13px; padding: 10px 32px; cursor: pointer; transition: border-color 0.2s, color 0.2s; }
+  .btn-more:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-more:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  .status { text-align: center; padding: 4rem 0; color: var(--text-muted); font-size: 14px; }
+  .error { background: rgba(224,112,112,0.08); border: 1px solid rgba(224,112,112,0.2); border-radius: var(--radius-sm); color: var(--red); font-size: 13px; padding: 10px 14px; margin-bottom: 1.5rem; display: none; }
+  .result-bar { display: flex; align-items: center; margin-bottom: 1.25rem; }
+  .result-count { font-size: 13px; color: var(--text-muted); }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 16px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; transition: border-color 0.2s, transform 0.2s; }
+  .card:hover { border-color: var(--border-hover); transform: translateY(-2px); }
+  .poster { width: 100%; aspect-ratio: 2/3; object-fit: cover; display: block; background: var(--surface2); }
+  .poster-placeholder { width: 100%; aspect-ratio: 2/3; background: var(--surface2); display: flex; align-items: center; justify-content: center; color: var(--text-faint); font-size: 12px; }
+  .card-body { padding: 10px 12px 12px; }
+  .card-title { font-size: 13px; font-weight: 400; color: var(--text); line-height: 1.35; margin-bottom: 5px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .card-meta { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .card-year { font-size: 12px; color: var(--text-faint); }
+  .card-rating { font-size: 12px; font-weight: 500; color: var(--accent); }
+  .providers { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; min-height: 22px; }
+  .provider-logo { width: 22px; height: 22px; border-radius: 5px; object-fit: cover; }
+  .no-provider { font-size: 11px; color: var(--text-faint); }
+
+  .loading-dots::after { content: ''; animation: dots 1.2s steps(4, end) infinite; }
+  @keyframes dots { 0% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75% { content: '...'; } }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">ne <span>izlesem</span></div>
+  <div class="tagline">Türkiye'deki platformlarda gerçek zamanlı içerik keşfi</div>
+</header>
+
+<div class="main">
+
+  <div class="tabs">
+    <button class="tab active" id="tab-movie" onclick="switchTab('movie')">Film</button>
+    <button class="tab" id="tab-tv" onclick="switchTab('tv')">Dizi</button>
+  </div>
+
+  <div class="filters">
+    <div class="filter-wrap">
+      <span class="filter-label">Tür</span>
+      <select id="genre"></select>
+    </div>
+    <div class="filter-wrap">
+      <span class="filter-label">Min. Puan</span>
+      <select id="min-rating">
+        <option value="6.0">6.0+</option>
+        <option value="6.5">6.5+</option>
+        <option value="7.0">7.0+</option>
+        <option value="7.5" selected>7.5+</option>
+        <option value="8.0">8.0+</option>
+        <option value="8.5">8.5+</option>
+      </select>
+    </div>
+    <div class="filter-wrap">
+      <span class="filter-label">Min. Yıl</span>
+      <select id="min-year">
+        <option value="">Tümü</option>
+        <option value="2020">2020+</option>
+        <option value="2015">2015+</option>
+        <option value="2010">2010+</option>
+        <option value="2000">2000+</option>
+        <option value="1990">1990+</option>
+      </select>
+    </div>
+    <div class="filter-wrap">
+      <span class="filter-label">Platform (TR)</span>
+      <select id="platform">
+        <option value="">Hepsi</option>
+        <option value="8">Netflix</option>
+        <option value="119">Amazon Prime</option>
+        <option value="384">Max (HBO)</option>
+        <option value="350">Apple TV+</option>
+        <option value="337">Disney+</option>
+        <option value="100">Mubi</option>
+        <option value="341">Gain</option>
+      </select>
+    </div>
+    <div class="filter-wrap">
+      <span class="filter-label">Türkiye'de</span>
+      <select id="tr-filter">
+        <option value="">Hepsi</option>
+        <option value="yes">Sadece TR'de olanlar</option>
+        <option value="no">TR'de olmayanlar</option>
+      </select>
+    </div>
+    <div class="filter-wrap">
+      <span class="filter-label">Sıralama</span>
+      <select id="sort">
+        <option value="vote_average.desc">En Yüksek Puan</option>
+        <option value="popularity.desc">En Popüler</option>
+        <option value="primary_release_date.desc">En Yeni</option>
+      </select>
+    </div>
+    <button class="btn-search" id="search-btn" onclick="startSearch()">Ara</button>
+  </div>
+
+  <div class="error" id="error"></div>
+  <div class="status" id="status">Filtreni seç ve "Ara"ya bas.</div>
+  <div class="result-bar" id="result-bar" style="display:none;">
+    <span class="result-count" id="result-count"></span>
+  </div>
+  <div class="grid" id="grid"></div>
+  <button class="btn-more" id="more-btn" style="display:none;" onclick="loadMore()">Daha fazla yükle</button>
+
+</div>
+
+<script>
+const MOVIE_GENRES = [
+  { value: '', label: 'Tümü' },
+  { value: 'sport', label: 'Spor' },
+  { value: '28', label: 'Aksiyon' },
+  { value: '12', label: 'Macera' },
+  { value: '16', label: 'Animasyon' },
+  { value: '35', label: 'Komedi' },
+  { value: '80', label: 'Suç' },
+  { value: '99', label: 'Belgesel' },
+  { value: '18', label: 'Drama' },
+  { value: '10751', label: 'Aile' },
+  { value: '14', label: 'Fantastik' },
+  { value: '36', label: 'Tarih' },
+  { value: '27', label: 'Korku' },
+  { value: '9648', label: 'Gizem' },
+  { value: '10749', label: 'Romantik' },
+  { value: '878', label: 'Bilim Kurgu' },
+  { value: '53', label: 'Gerilim' },
+  { value: '10752', label: 'Savaş' },
+];
+
+const TV_GENRES = [
+  { value: '', label: 'Tümü' },
+  { value: '10759', label: 'Aksiyon & Macera' },
+  { value: '16', label: 'Animasyon' },
+  { value: '35', label: 'Komedi' },
+  { value: '80', label: 'Suç' },
+  { value: '99', label: 'Belgesel' },
+  { value: '18', label: 'Drama' },
+  { value: '10751', label: 'Aile' },
+  { value: '10762', label: 'Çocuk' },
+  { value: '9648', label: 'Gizem' },
+  { value: '10765', label: 'Bilim Kurgu & Fantezi' },
+  { value: '10768', label: 'Savaş & Politika' },
+  { value: '37', label: 'Western' },
+];
+
+let currentTab = 'movie';
+let currentPage = 1;
+let totalPages = 1;
+let currentParams = {};
+let totalLoaded = 0;
+
+function tmdbFetch(path, query) {
+  const qs = new URLSearchParams({ path, query }).toString();
+  return fetch(`/api/tmdb?${qs}`).then(r => r.json());
+}
+
+function switchTab(tab) {
+  currentTab = tab;
+  document.getElementById('tab-movie').classList.toggle('active', tab === 'movie');
+  document.getElementById('tab-tv').classList.toggle('active', tab === 'tv');
+  populateGenres();
+  document.getElementById('sort').innerHTML = tab === 'movie'
+    ? `<option value="vote_average.desc">En Yüksek Puan</option>
+       <option value="popularity.desc">En Popüler</option>
+       <option value="primary_release_date.desc">En Yeni</option>`
+    : `<option value="vote_average.desc">En Yüksek Puan</option>
+       <option value="popularity.desc">En Popüler</option>
+       <option value="first_air_date.desc">En Yeni</option>`;
+}
+
+function populateGenres() {
+  const genres = currentTab === 'movie' ? MOVIE_GENRES : TV_GENRES;
+  document.getElementById('genre').innerHTML = genres.map(g =>
+    `<option value="${g.value}">${g.label}</option>`
+  ).join('');
+}
+
+function buildQuery(params, page) {
+  const dateField = params.type === 'tv' ? 'first_air_date' : 'primary_release_date';
+  let q = `language=tr-TR&vote_count.gte=100&vote_average.gte=${params.minRating}&sort_by=${params.sort}&page=${page}`;
+  if (params.type === 'movie') q += `&region=TR`;
+  if (params.genre) q += `&with_genres=${params.genre}`;
+  if (params.isSport) q += `&with_keywords=6075`;
+  if (params.minYear) q += `&${dateField}.gte=${params.minYear}-01-01`;
+  if (params.platform) q += `&with_watch_providers=${params.platform}&watch_region=TR`;
+  return q;
+}
+
+async function enrichItems(items, type) {
+  return await Promise.all(items.map(async (m) => {
+    try {
+      const endpoint = type === 'tv' ? 'tv' : 'movie';
+      const d = await tmdbFetch(`/${endpoint}/${m.id}/watch/providers`, '');
+      const tr = d.results && d.results.TR;
+      const providers = [];
+      if (tr) {
+        const all = [...(tr.flatrate || []), ...(tr.ads || [])];
+        const seen = new Set();
+        for (const p of all) {
+          if (!seen.has(p.provider_id)) {
+            seen.add(p.provider_id);
+            providers.push({ name: p.provider_name, logo: p.logo_path });
+          }
+        }
+      }
+      return { ...m, providers };
+    } catch { return { ...m, providers: [] }; }
+  }));
+}
+
+function applyTrFilter(items, trFilter) {
+  if (trFilter === 'yes') return items.filter(m => m.providers.length > 0);
+  if (trFilter === 'no') return items.filter(m => m.providers.length === 0);
+  return items;
+}
+
+function renderCards(items, type) {
+  const grid = document.getElementById('grid');
+  for (const m of items) {
+    const title = type === 'tv' ? (m.name || m.original_name) : m.title;
+    const dateStr = type === 'tv' ? m.first_air_date : m.release_date;
+    const year = dateStr ? dateStr.split('-')[0] : '?';
+    const rating = m.vote_average.toFixed(1);
+    const poster = m.poster_path
+      ? `<img class="poster" src="https://image.tmdb.org/t/p/w300${m.poster_path}" alt="${title}" loading="lazy" />`
+      : `<div class="poster-placeholder">Poster yok</div>`;
+    const providerHtml = m.providers.length
+      ? m.providers.slice(0, 5).map(p =>
+          `<img class="provider-logo" src="https://image.tmdb.org/t/p/original${p.logo}" alt="${p.name}" title="${p.name}" />`
+        ).join('')
+      : `<span class="no-provider">TR'de mevcut değil</span>`;
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+      ${poster}
+      <div class="card-body">
+        <div class="card-title">${title}</div>
+        <div class="card-meta">
+          <span class="card-year">${year}</span>
+          <span class="card-rating">★ ${rating}</span>
+        </div>
+        <div class="providers">${providerHtml}</div>
+      </div>
+    `;
+    grid.appendChild(card);
+  }
+}
+
+function updateCount() {
+  document.getElementById('result-count').textContent = `${totalLoaded} sonuç yüklendi`;
+}
+
+async function startSearch() {
+  const genreVal = document.getElementById('genre').value;
+  currentParams = {
+    type: currentTab,
+    isSport: genreVal === 'sport',
+    genre: genreVal === 'sport' ? '' : genreVal,
+    minRating: document.getElementById('min-rating').value,
+    minYear: document.getElementById('min-year').value,
+    platform: document.getElementById('platform').value,
+    trFilter: document.getElementById('tr-filter').value,
+    sort: document.getElementById('sort').value,
+  };
+  currentPage = 1;
+  totalLoaded = 0;
+
+  const btn = document.getElementById('search-btn');
+  btn.disabled = true;
+  btn.textContent = 'Aranıyor...';
+  document.getElementById('grid').innerHTML = '';
+  document.getElementById('result-bar').style.display = 'none';
+  document.getElementById('more-btn').style.display = 'none';
+  hideError();
+  setStatus('İçerikler çekiliyor', true);
+
+  try {
+    const endpoint = currentParams.type === 'tv' ? '/tv' : '/movie';
+    const firstData = await tmdbFetch(`/discover${endpoint}`, buildQuery(currentParams, 1));
+    if (firstData.error) throw new Error(firstData.error);
+    totalPages = firstData.total_pages;
+
+    const pagesToFetch = [1, 2, 3, 4, 5].filter(p => p <= totalPages);
+    const pageResults = await Promise.all(
+      pagesToFetch.map(p => p === 1
+        ? Promise.resolve(firstData)
+        : tmdbFetch(`/discover${endpoint}`, buildQuery(currentParams, p)))
+    );
+
+    let allItems = [];
+    for (const d of pageResults) allItems = allItems.concat(d.results || []);
+
+    if (!allItems.length) {
+      setStatus('Bu kriterlere uygun içerik bulunamadı.', false);
+      btn.disabled = false; btn.textContent = 'Ara';
+      return;
+    }
+
+    setStatus('Platform bilgileri alınıyor', true);
+    let enriched = await enrichItems(allItems, currentTab);
+    enriched = applyTrFilter(enriched, currentParams.trFilter);
+
+    setStatus('', false);
+    totalLoaded = enriched.length;
+    currentPage = Math.min(5, totalPages);
+
+    document.getElementById('result-bar').style.display = 'flex';
+    updateCount();
+    renderCards(enriched, currentTab);
+    if (totalPages > 5) document.getElementById('more-btn').style.display = 'block';
+
+  } catch(e) {
+    setStatus('', false);
+    showError('Hata: ' + (e.message || 'Bağlantı kurulamadı.'));
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Ara';
+}
+
+async function loadMore() {
+  const moreBtn = document.getElementById('more-btn');
+  moreBtn.disabled = true;
+  moreBtn.textContent = 'Yükleniyor...';
+  const endpoint = currentParams.type === 'tv' ? '/tv' : '/movie';
+
+  try {
+    const nextPages = [currentPage + 1, currentPage + 2].filter(p => p <= totalPages);
+    if (!nextPages.length) { moreBtn.style.display = 'none'; return; }
+
+    const pageResults = await Promise.all(
+      nextPages.map(p => tmdbFetch(`/discover${endpoint}`, buildQuery(currentParams, p)))
+    );
+    let allItems = [];
+    for (const d of pageResults) allItems = allItems.concat(d.results || []);
+
+    let enriched = await enrichItems(allItems, currentParams.type);
+    enriched = applyTrFilter(enriched, currentParams.trFilter);
+
+    totalLoaded += enriched.length;
+    currentPage = nextPages[nextPages.length - 1];
+    renderCards(enriched, currentParams.type);
+    updateCount();
+
+    if (currentPage >= totalPages) {
+      moreBtn.style.display = 'none';
+    } else {
+      moreBtn.disabled = false;
+      moreBtn.textContent = 'Daha fazla yükle';
+    }
+  } catch(e) {
+    showError('Yükleme hatası: ' + e.message);
+    moreBtn.disabled = false;
+    moreBtn.textContent = 'Daha fazla yükle';
+  }
+}
+
+function setStatus(msg, loading) {
+  const el = document.getElementById('status');
+  el.style.display = msg ? 'block' : 'none';
+  el.className = loading ? 'status loading-dots' : 'status';
+  el.textContent = msg;
+}
+
+function showError(msg) {
+  const el = document.getElementById('error');
+  el.style.display = 'block';
+  el.textContent = msg;
+}
+
+function hideError() {
+  document.getElementById('error').style.display = 'none';
+}
+
+populateGenres();
+</script>
+</body>
+</html>
