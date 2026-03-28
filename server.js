@@ -57,19 +57,20 @@ async function sendEmail(to, subject, html) {
 }
 
 function confirmationEmail(movieTitle, movieId, movieType) {
+  const contentLabel = movieType === 'tv' ? 'dizi' : 'film';
+  const linkLabel = movieType === 'tv' ? 'Diziye git' : 'Filme git';
   return `
     <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px;background:#0d0d0d;color:#f0ece4;">
       <h2 style="font-size:1.4rem;margin-bottom:4px;color:#f0ece4;">ne <span style="color:#e8c87a;">izlesem?</span></h2>
-      <p style="font-size:12px;color:#888;margin-bottom:24px;">aradığın film bir yerlerde var aslında.</p>
-      <p style="margin-bottom:12px;">Merhaba,</p>
-      <p style="margin-bottom:12px;"><strong style="color:#e8c87a;">${movieTitle}</strong> için bildirim kaydın alındı.</p>
-      <p style="margin-bottom:24px;color:#888;">Bu içerik Türkiye'deki herhangi bir platformda yayınlandığında sana haber vereceğiz.</p>
+      <p style="margin-bottom:16px;"><strong style="color:#e8c87a;">${movieTitle}</strong>'a olan heyecanını paylaşıyoruz. Korsan sitelerden izlemek yerine streaming platformlarına olan inancın için de teşekkürler.</p>
+      <p style="margin-bottom:16px;">Umarım "kara tren gecikir belki hiç gelmez" türküsündeki gibi uzun bir bekleyiş olmaz.</p>
+      <p style="margin-bottom:24px;">Bu ${contentLabel} casino reklamları görmeden izlenilebilir duruma geldiğinde haber vereceğiz.</p>
       <a href="https://neizlesem.co?id=${movieId}&type=${movieType}" 
          style="display:inline-block;background:#e8c87a;color:#1a1500;padding:10px 20px;text-decoration:none;border-radius:8px;font-size:13px;font-weight:500;">
-        Filme git
+        ${linkLabel}
       </a>
       <p style="color:#555;font-size:11px;margin-top:32px;border-top:1px solid #222;padding-top:16px;">
-        neizlesem.co — film seçmekten film izleyemeyenler için.
+        <a href="https://neizlesem.co" style="color:#888;text-decoration:none;">neizlesem.co</a> — aradığın film bir yerlerde var aslında.
       </p>
     </div>
   `;
@@ -79,17 +80,20 @@ function notificationEmail(movieTitle, platformNames, movieId, movieType) {
   return `
     <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px;background:#0d0d0d;color:#f0ece4;">
       <h2 style="font-size:1.4rem;margin-bottom:4px;color:#f0ece4;">ne <span style="color:#e8c87a;">izlesem?</span></h2>
-      <p style="font-size:12px;color:#888;margin-bottom:24px;">aradığın film bir yerlerde var aslında.</p>
-      <p style="margin-bottom:12px;">Merhaba,</p>
-      <p style="margin-bottom:8px;">Beklediğin içerik yayında!</p>
-      <p style="margin-bottom:16px;"><strong style="color:#e8c87a;">${movieTitle}</strong> artık Türkiye'de şu platformlarda izlenebilir:</p>
-      <p style="font-size:18px;font-weight:bold;color:#e8c87a;margin-bottom:24px;">${platformNames}</p>
+      <p style="margin-bottom:16px;">Beklediğine değdi.</p>
+      <p style="margin-bottom:16px;"><strong style="color:#e8c87a;">${movieTitle}</strong> artık <strong style="color:#e8c87a;">${platformNames}</strong> üzerinde izlenebilir durumda.</p>
+      <p style="margin-bottom:24px;color:#888;">Ya da nefsine hakim olamayıp korsan izledin, onu bilemiyoruz ama biz görevimizi yaptık!</p>
       <a href="https://neizlesem.co?id=${movieId}&type=${movieType}" 
          style="display:inline-block;background:#e8c87a;color:#1a1500;padding:10px 20px;text-decoration:none;border-radius:8px;font-size:13px;font-weight:500;">
         Hemen izle
       </a>
+      <p style="margin-top:24px;color:#888;font-size:13px;">Diğer merak ettiğin filmleri listeye eklemeyi unutma.</p>
+      <a href="https://neizlesem.co" 
+         style="display:inline-block;margin-top:8px;color:#e8c87a;font-size:13px;text-decoration:none;">
+        neizlesem.co →
+      </a>
       <p style="color:#555;font-size:11px;margin-top:32px;border-top:1px solid #222;padding-top:16px;">
-        neizlesem.co — film seçmekten film izleyemeyenler için.
+        <a href="https://neizlesem.co" style="color:#888;text-decoration:none;">neizlesem.co</a> — aradığın film bir yerlerde var aslında.
       </p>
     </div>
   `;
