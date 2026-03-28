@@ -656,8 +656,16 @@ async function searchByPerson(personId, personName, type) {
       return true;
     });
 
-    // Popülerliğe göre sırala
-    filtered.sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
+    // Seçilen sort parametresine göre sırala
+    const sortBy = document.getElementById('sort').value;
+    if (sortBy === 'vote_average.desc') {
+      filtered.sort((a, b) => (b.vote_average || 0) - (a.vote_average || 0));
+    } else if (sortBy.includes('release_date') || sortBy.includes('first_air_date')) {
+      const dateField2 = type === 'tv' ? 'first_air_date' : 'release_date';
+      filtered.sort((a, b) => (b[dateField2] || '').localeCompare(a[dateField2] || ''));
+    } else {
+      filtered.sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
+    }
     filtered = filtered.slice(0, 40);
 
     setStatus('Platform bilgileri alınıyor', true);
@@ -667,7 +675,9 @@ async function searchByPerson(personId, personName, type) {
     const selectedPlatformIds = selectedPlatforms.map(p => p.id);
     let result = enriched;
     if (selectedPlatformIds.length < ALL_PLATFORMS.length) {
-      result = enriched.filter(m => m.providers.some(p => selectedPlatformIds.includes(String(p.provider_id))));
+      result = enriched.filter(m => m.providers.some(p => 
+        selectedPlatformIds.includes(String(p.provider_id)) || selectedPlatformIds.includes(p.provider_id)
+      ));
     }
     if (trFilter === 'yes') result = result.filter(m => m.providers.length > 0);
     if (trFilter === 'no') result = result.filter(m => m.providers.length === 0);
