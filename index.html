@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23e8c87a'/><text x='50%25' y='50%25' dominant-baseline='central' text-anchor='middle' font-family='serif' font-weight='bold' font-size='20' fill='%231a1500'>n</text></svg>" />
 <title>Ne İzlesem | Türkiye'de Hangi Platformda İzlenir?</title>
 <meta name="description" content="Netflix, Amazon Prime, HBO Max, Disney+ ve daha fazlasında Türkiye'de izlenebilecek en iyi film ve dizileri keşfet. Puan, tür ve platforma göre filtrele." />
 <meta name="keywords" content="ne izlesem, netflix türkiye, amazon prime türkiye, film öneri, dizi öneri, hangi platformda, streaming türkiye" />
@@ -189,6 +190,9 @@
   .ms-badge:hover { background: rgba(232,200,122,0.2); }
   .person-wrap { position: relative; }
   .person-input { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 13px; padding: 9px 12px; outline: none; transition: border-color 0.2s; width: 100%; }
+  .search-bar-input { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 15px; padding: 12px 16px; outline: none; transition: border-color 0.2s; width: 100%; }
+  .search-bar-input:focus { border-color: var(--border-hover); }
+  .search-bar-input::placeholder { color: var(--text-faint); }
   .person-input:focus { border-color: var(--border-hover); }
   .person-input::placeholder { color: var(--text-faint); }
   .person-suggestions { display: none; position: absolute; top: calc(100% + 4px); left: 0; width: 260px; background: var(--surface); border: 1px solid var(--border-hover); border-radius: var(--radius-sm); z-index: 100; overflow: hidden; max-height: 320px; overflow-y: auto; }
@@ -214,6 +218,14 @@
 </header>
 
 <div class="main">
+
+  <div class="search-bar-wrap" style="margin-bottom:1.5rem;">
+    <div class="person-wrap">
+      <input type="text" class="search-bar-input" id="person-input" placeholder="Film, dizi, yönetmen veya oyuncu ara..." autocomplete="off" oninput="searchPerson(this.value)" onblur="setTimeout(()=>closeSuggestions(),200)" />
+      <div class="person-suggestions" id="person-suggestions"></div>
+    </div>
+    <div id="all-badges-search"></div>
+  </div>
 
   <div class="tabs">
     <button class="tab active" id="tab-movie" onclick="switchTab('movie')">Film</button>
@@ -307,14 +319,6 @@
       </select>
     </div>
     <div class="filter-wrap">
-      <span class="filter-label">Ara</span>
-      <div class="person-wrap">
-        <input type="text" class="person-input" id="person-input" placeholder="Film, dizi, yönetmen, oyuncu..." autocomplete="off" oninput="searchPerson(this.value)" onblur="setTimeout(()=>closeSuggestions(),200)" />
-        <div class="person-suggestions" id="person-suggestions"></div>
-      </div>
-    </div>
-
-    <div class="filter-wrap">
       <span class="filter-label">Sıralama</span>
       <select id="sort">
         <option value="vote_average.desc">En Yüksek Puan</option>
@@ -326,7 +330,6 @@
   </div>
   <div class="filter-badges-row" id="all-badges">
     <div id="platform-badges"></div>
-    <div id="person-badge-wrap"></div>
   </div>
 
   <div class="error" id="error"></div>
@@ -571,7 +574,7 @@ function selectPerson(id, name, role) {
   selectedContent = null;
   document.getElementById('person-input').value = '';
   document.getElementById('person-suggestions').classList.remove('open');
-  const wrap = document.getElementById('person-badge-wrap');
+  const wrap = document.getElementById('all-badges-search');
   wrap.innerHTML = `<div class="person-badge" onclick="clearSearch()">
     ${name} <span class="person-badge-x">×</span>
   </div>`;
@@ -676,7 +679,7 @@ async function selectContent(id, title, type, poster, year, rating) {
   document.getElementById('person-input').value = '';
   document.getElementById('person-suggestions').classList.remove('open');
 
-  const wrap = document.getElementById('person-badge-wrap');
+  const wrap = document.getElementById('all-badges-search');
   wrap.innerHTML = `<div class="content-badge" onclick="clearSearch()">
     ${title} (${year}) <span class="person-badge-x">×</span>
   </div>`;
@@ -752,7 +755,7 @@ async function selectContent(id, title, type, poster, year, rating) {
 function clearSearch() {
   selectedPerson = null;
   selectedContent = null;
-  document.getElementById('person-badge-wrap').innerHTML = '';
+  document.getElementById('all-badges-search').innerHTML = '';
   document.getElementById('person-input').value = '';
   document.getElementById('grid').innerHTML = '';
   document.getElementById('result-bar').style.display = 'none';
