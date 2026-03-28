@@ -586,9 +586,31 @@ function selectPerson(id, name, role) {
   wrap.innerHTML = `<div class="person-badge" onclick="clearSearch()">
     ${name} <span class="person-badge-x">×</span>
   </div>`;
+
+  // GA: search_query event
+  if (typeof gtag !== 'undefined') {
+    gtag('event', 'search_query', {
+      query: name,
+      query_type: 'person',
+      department: role
+    });
+  }
 }
 
 async function searchByPerson(personId, personName, type) {
+  // GA: search event
+  if (typeof gtag !== 'undefined') {
+    gtag('event', 'search', {
+      genre: document.getElementById('genre').value || 'tümü',
+      min_rating: document.getElementById('min-rating').value,
+      platform_count: selectedPlatforms.length,
+      oscar: document.getElementById('oscar-filter')?.value || '',
+      emmy: document.getElementById('emmy-filter')?.value || '',
+      tr_filter: document.getElementById('tr-filter').value || 'hepsi',
+      tab: currentTab
+    });
+  }
+
   const btn = document.getElementById('search-btn');
   btn.disabled = true;
   btn.textContent = 'Aranıyor...';
@@ -691,6 +713,16 @@ async function selectContent(id, title, type, poster, year, rating) {
   wrap.innerHTML = `<div class="content-badge" onclick="clearSearch()">
     ${title} (${year}) <span class="person-badge-x">×</span>
   </div>`;
+
+  // GA: search_query event
+  if (typeof gtag !== 'undefined') {
+    gtag('event', 'search_query', {
+      query: title,
+      query_type: type,
+      content_id: id,
+      release_year: year
+    });
+  }
 
   // URL güncelle
   const newUrl = new URL(window.location.href);
@@ -941,6 +973,17 @@ async function shareContent(url, title) {
 }
 
 async function openDetailModal(id, type, title, poster, year, rating, providers) {
+  // GA: detail_open event
+  if (typeof gtag !== 'undefined') {
+    gtag('event', 'detail_open', {
+      content_id: id,
+      content_title: title,
+      content_type: type,
+      release_year: year,
+      rating: parseFloat(rating).toFixed(1)
+    });
+  }
+
   const modal = document.getElementById('detail-modal');
   
   // Poster
@@ -1085,6 +1128,16 @@ async function submitNotify() {
     if (res.ok || res.status === 200) {
       document.getElementById('notify-success').style.display = 'block';
       btn.textContent = 'Haber ver';
+
+      // GA: notify_signup event
+      if (typeof gtag !== 'undefined') {
+        gtag('event', 'notify_signup', {
+          content_id: notifyMovieId,
+          content_title: notifyMovieTitle,
+          content_type: notifyMovieType
+        });
+      }
+
       setTimeout(() => closeNotifyModal(null), 2500);
     } else {
       throw new Error(data.error || 'Bir hata oluştu.');
