@@ -1099,7 +1099,8 @@ function populateGenres() {
 
 function buildQuery(params, page) {
   const dateField = params.type === 'tv' ? 'first_air_date' : 'primary_release_date';
-  let q = `language=en-US&vote_count.gte=5000&vote_average.gte=${params.minRating}&sort_by=${params.sort}&page=${page}`;
+  const minVotes = params.type === 'tv' ? 100 : 500;
+  let q = `language=en-US&vote_count.gte=${minVotes}&vote_average.gte=${params.minRating}&sort_by=${params.sort}&page=${page}`;
   if (params.type === 'movie') q += `&region=TR`;
   if (params.genre) q += `&with_genres=${params.genre}`;
   if (params.isSport) q += `&with_keywords=6075`;
