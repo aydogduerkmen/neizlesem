@@ -39,6 +39,62 @@ function supabaseRequest(path, method = 'GET', body = null) {
   return fetchJson(url, options);
 }
 
+async function sendEmail(to, subject, html) {
+  if (!RESEND_KEY) return;
+  return fetchJson('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${RESEND_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      from: 'ne izlesem? <bildirim@neizlesem.co>',
+      to,
+      subject,
+      html
+    })
+  });
+}
+
+function confirmationEmail(movieTitle, movieId, movieType) {
+  return `
+    <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px;background:#0d0d0d;color:#f0ece4;">
+      <h2 style="font-size:1.4rem;margin-bottom:4px;color:#f0ece4;">ne <span style="color:#e8c87a;">izlesem?</span></h2>
+      <p style="font-size:12px;color:#888;margin-bottom:24px;">aradığın film bir yerlerde var aslında.</p>
+      <p style="margin-bottom:12px;">Merhaba,</p>
+      <p style="margin-bottom:12px;"><strong style="color:#e8c87a;">${movieTitle}</strong> için bildirim kaydın alındı.</p>
+      <p style="margin-bottom:24px;color:#888;">Bu içerik Türkiye'deki herhangi bir platformda yayınlandığında sana haber vereceğiz.</p>
+      <a href="https://neizlesem.co?id=${movieId}&type=${movieType}" 
+         style="display:inline-block;background:#e8c87a;color:#1a1500;padding:10px 20px;text-decoration:none;border-radius:8px;font-size:13px;font-weight:500;">
+        Filme git
+      </a>
+      <p style="color:#555;font-size:11px;margin-top:32px;border-top:1px solid #222;padding-top:16px;">
+        neizlesem.co — film seçmekten film izleyemeyenler için.
+      </p>
+    </div>
+  `;
+}
+
+function notificationEmail(movieTitle, platformNames, movieId, movieType) {
+  return `
+    <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px;background:#0d0d0d;color:#f0ece4;">
+      <h2 style="font-size:1.4rem;margin-bottom:4px;color:#f0ece4;">ne <span style="color:#e8c87a;">izlesem?</span></h2>
+      <p style="font-size:12px;color:#888;margin-bottom:24px;">aradığın film bir yerlerde var aslında.</p>
+      <p style="margin-bottom:12px;">Merhaba,</p>
+      <p style="margin-bottom:8px;">Beklediğin içerik yayında!</p>
+      <p style="margin-bottom:16px;"><strong style="color:#e8c87a;">${movieTitle}</strong> artık Türkiye'de şu platformlarda izlenebilir:</p>
+      <p style="font-size:18px;font-weight:bold;color:#e8c87a;margin-bottom:24px;">${platformNames}</p>
+      <a href="https://neizlesem.co?id=${movieId}&type=${movieType}" 
+         style="display:inline-block;background:#e8c87a;color:#1a1500;padding:10px 20px;text-decoration:none;border-radius:8px;font-size:13px;font-weight:500;">
+        Hemen izle
+      </a>
+      <p style="color:#555;font-size:11px;margin-top:32px;border-top:1px solid #222;padding-top:16px;">
+        neizlesem.co — film seçmekten film izleyemeyenler için.
+      </p>
+    </div>
+  `;
+}
+
 const server = http.createServer(async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -76,7 +132,6 @@ const server = http.createServer(async (req, res) => {
         const { email, movie_id, movie_title, movie_type } = JSON.parse(body);
         if (!email || !movie_id) return json(400, { error: 'email ve movie_id zorunlu.' });
 
-        // Email format kontrolü
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
           return json(400, { error: 'Geçersiz email adresi.' });
         }
@@ -89,9 +144,17 @@ const server = http.createServer(async (req, res) => {
           return json(200, { message: 'Bu film için zaten bildirim kaydın var.' });
         }
 
-        const result = await supabaseRequest('watchlist', 'POST', {
+        await supabaseRequest('watchlist', 'POST', {
           email, movie_id, movie_title, movie_type, notified: false
         });
+
+        // Onay maili gönder
+        await sendEmail(
+          email,
+          `${movie_title} — bildirim kaydın alındı`,
+          confirmationEmail(movie_title, movie_id, movie_type)
+        );
+
         json(201, { message: 'Bildirim kaydedildi!' });
       } catch(e) { json(500, { error: e.message }); }
     });
@@ -104,16 +167,11 @@ const server = http.createServer(async (req, res) => {
     if (secret !== process.env.CRON_SECRET) return json(401, { error: 'Yetkisiz.' });
 
     try {
-      // Henüz bildirilmemiş kayıtları al
-      const { body: watchlist } = await supabaseRequest(
-        'watchlist?notified=eq.false&select=*'
-      );
-
+      const { body: watchlist } = await supabaseRequest('watchlist?notified=eq.false&select=*');
       if (!watchlist || !watchlist.length) return json(200, { message: 'Kontrol edilecek kayıt yok.' });
 
       let notified = 0;
       for (const item of watchlist) {
-        // TMDB'den provider bilgisini çek
         const endpoint = item.movie_type === 'tv' ? 'tv' : 'movie';
         const providerRes = await fetchJson(
           `https://api.themoviedb.org/3/${endpoint}/${item.movie_id}/watch/providers?api_key=${TMDB_KEY}`
@@ -122,40 +180,14 @@ const server = http.createServer(async (req, res) => {
         const providers = tr ? [...(tr.flatrate || []), ...(tr.ads || [])] : [];
 
         if (providers.length > 0) {
-          // Platform bulundu, mail at
           const platformNames = [...new Set(providers.map(p => p.provider_name))].join(', ');
 
-          if (RESEND_KEY) {
-            await fetchJson('https://api.resend.com/emails', {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${RESEND_KEY}`,
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({
-                from: 'ne izlesem <bildirim@neizlesem.co>',
-                to: item.email,
-                subject: `${item.movie_title} artık Türkiye'de izlenebilir!`,
-                html: `
-                  <div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:24px;">
-                    <h2 style="color:#e8c87a;">ne izlesem</h2>
-                    <p>Merhaba,</p>
-                    <p><strong>${item.movie_title}</strong> artık Türkiye'de şu platformlarda izlenebilir:</p>
-                    <p style="font-size:18px;font-weight:bold;">${platformNames}</p>
-                    <a href="https://neizlesem.co?id=${item.movie_id}&type=${item.movie_type}" 
-                       style="display:inline-block;background:#e8c87a;color:#1a1500;padding:12px 24px;text-decoration:none;border-radius:8px;margin-top:16px;">
-                      Hemen izle
-                    </a>
-                    <p style="color:#888;font-size:12px;margin-top:24px;">
-                      neizlesem.co — film seçmekten film izleyemeyenler için.
-                    </p>
-                  </div>
-                `
-              })
-            });
-          }
+          await sendEmail(
+            item.email,
+            `${item.movie_title} artık Türkiye'de izlenebilir!`,
+            notificationEmail(item.movie_title, platformNames, item.movie_id, item.movie_type)
+          );
 
-          // Notified olarak işaretle
           await supabaseRequest(
             `watchlist?email=eq.${encodeURIComponent(item.email)}&movie_id=eq.${item.movie_id}`,
             'PATCH',
