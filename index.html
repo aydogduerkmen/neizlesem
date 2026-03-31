@@ -259,7 +259,7 @@
     <div class="filter-wrap">
       <span class="filter-label">Min. Yıl</span>
       <select id="min-year">
-        <option value="">Tümü</option>
+        <option value="">Hepsi</option>
         <option value="2020">2020+</option>
         <option value="2015">2015+</option>
         <option value="2010">2010+</option>
@@ -270,7 +270,7 @@
     <div class="filter-wrap" id="duration-wrap">
       <span class="filter-label">Süre</span>
       <select id="duration">
-        <option value="">Tümü</option>
+        <option value="">Hepsi</option>
         <option value="60">60 dk altı</option>
         <option value="90">90 dk altı</option>
         <option value="120">120 dk altı</option>
@@ -285,7 +285,7 @@
         <button type="button" class="ms-trigger" id="platform-trigger" onclick="togglePlatformDropdown()">Hepsi</button>
         <div class="ms-dropdown" id="platform-dropdown">
           <div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:4px;">
-            <button type="button" onclick="selectAllPlatforms()" style="flex:1;background:transparent;border:none;color:var(--accent);font-family:var(--font-sans);font-size:12px;padding:7px 12px;cursor:pointer;text-align:left;">Tümünü seç</button>
+            <button type="button" onclick="selectAllPlatforms()" style="flex:1;background:transparent;border:none;color:var(--accent);font-family:var(--font-sans);font-size:12px;padding:7px 12px;cursor:pointer;text-align:left;">Hepsini seç</button>
             <button type="button" onclick="clearAllPlatforms()" style="flex:1;background:transparent;border:none;color:var(--text-faint);font-family:var(--font-sans);font-size:12px;padding:7px 12px;cursor:pointer;text-align:left;">Temizle</button>
           </div>
           <div class="ms-option" onclick="togglePlatform('8','Netflix',this)"><input type="checkbox" id="p-8" checked />Netflix</div>
@@ -400,7 +400,7 @@ const OSCAR_BEST_SCREENPLAY = new Set([12162, 1541, 773, 487558, 13, 1934, 14, 1
 const EMMY_IDS = new Set([732, 1448, 1920, 4396, 141, 3219, 1678, 1400, 2506, 4565, 206, 2706, 194, 3452, 6467, 500, 4588, 1668, 4087, 155, 3050, 549, 1480, 4454, 1398, 105, 688, 2140, 1274, 1973, 4589, 4607, 693, 4556, 1416, 2316, 2691, 4608, 1940, 1104, 4598, 1408, 5639, 1396, 1405, 2742, 1435, 1421, 1417, 1621, 18053, 1407, 42282, 1425, 2947, 46648, 1424, 1399, 60573, 62560, 60059, 61406, 64254, 65494, 63247, 65495, 69478, 46533, 70796, 73107, 76331, 72750, 67070, 69740, 97546, 61662, 93287, 93405, 124101, 107113, 111803, 125935, 136315, 100088, 126308, 95480, 83631]);
 
 const MOVIE_GENRES = [
-  { value: '', label: 'Tümü' },
+  { value: '', label: 'Hepsi' },
   { value: 'sport', label: 'Spor' },
   { value: '28', label: 'Aksiyon' },
   { value: '12', label: 'Macera' },
@@ -421,7 +421,7 @@ const MOVIE_GENRES = [
 ];
 
 const TV_GENRES = [
-  { value: '', label: 'Tümü' },
+  { value: '', label: 'Hepsi' },
   { value: 'sport', label: 'Spor' },
   { value: '10759', label: 'Aksiyon & Macera' },
   { value: '16', label: 'Animasyon' },
