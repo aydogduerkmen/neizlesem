@@ -781,7 +781,7 @@ async function selectContent(id, title, type, poster, year, rating) {
         `<img class="provider-logo" src="https://image.tmdb.org/t/p/original${p.logo}" alt="${p.name}" title="${p.name}" />`
       ).join('')
     : `<span class="no-provider">TR'de mevcut değil</span>
-       <button class="notify-btn" onclick="openNotifyModal(${id}, '${type}', event)" title="${title}">Gelince haber ver</button>`;
+       <button class="notify-btn" onclick="openNotifyModal(${id}, '${type}', event, '${title.replace(/'/g, &quot;&#39;&quot;)}')" title="${title}">Gelince haber ver</button>`;
 
   const shareUrl = `${window.location.origin}${window.location.pathname}?id=${id}&type=${type}`;
   const card = document.createElement('div');
@@ -1101,12 +1101,16 @@ let notifyMovieId = null;
 let notifyMovieType = null;
 let notifyMovieTitle = null;
 
-function openNotifyModal(id, type, event) {
-  if (event) event.stopPropagation();
+function openNotifyModal(id, type, event, titleOverride) {
+  if (event && event.stopPropagation) event.stopPropagation();
   notifyMovieId = id;
   notifyMovieType = type;
-  const btn = event && event.currentTarget;
-  notifyMovieTitle = btn ? btn.getAttribute('title') : '';
+  if (titleOverride) {
+    notifyMovieTitle = titleOverride;
+  } else {
+    const btn = event && event.currentTarget;
+    notifyMovieTitle = btn ? btn.getAttribute('title') : '';
+  }
   document.getElementById('notify-film-title').textContent = notifyMovieTitle;
   document.getElementById('notify-email').value = '';
   document.getElementById('notify-success').style.display = 'none';
@@ -1348,7 +1352,7 @@ function renderCards(items, type) {
           `<img class="provider-logo" src="https://image.tmdb.org/t/p/original${p.logo}" alt="${p.name}" title="${p.name}" />`
         ).join('')
       : `<span class="no-provider">TR'de mevcut değil</span>
-         <button class="notify-btn" onclick="openNotifyModal(${m.id}, '${type}', event)" title="${title}">Gelince haber ver</button>`;
+         <button class="notify-btn" onclick="openNotifyModal(${m.id}, '${type}', event, '${title.replace(/'/g, &quot;&#39;&quot;)}')" title="${title}">Gelince haber ver</button>`;
     const card = document.createElement('div');
     card.className = 'card';
     card.style.cursor = 'pointer';
