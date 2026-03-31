@@ -112,6 +112,11 @@ const server = http.createServer(async (req, res) => {
     res.end(JSON.stringify(data));
   };
 
+  // Health check (Render'ı uyanık tutmak için)
+  if (url.pathname === '/api/health') {
+    return json(200, { status: 'ok' });
+  }
+
   // TMDB proxy
   if (url.pathname === '/api/tmdb') {
     if (!TMDB_KEY) return json(500, { error: 'TMDB_API_KEY eksik.' });
