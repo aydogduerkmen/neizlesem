@@ -438,6 +438,9 @@ const TV_GENRES = [
 ];
 
 let currentTab = 'movie';
+let _loadMsgIdx = 0;
+const LOAD_MESSAGES = ['İçerikler çekiliyor...', 'Sabreden derviş muradına ermiş...'];
+function nextLoadMsg() { return LOAD_MESSAGES[_loadMsgIdx++ % LOAD_MESSAGES.length]; }
 let currentPage = 1;
 let totalPages = 1;
 let currentParams = {};
@@ -681,7 +684,7 @@ async function searchByPerson(personId, personName, type) {
     }
     filtered = filtered.slice(0, 40);
 
-    setStatus('Platform bilgileri alınıyor', true);
+    setStatus(nextLoadMsg(), true);
     const enriched = await enrichItems(filtered, type);
 
     // Oscar / Emmy filtresi
@@ -1229,7 +1232,7 @@ async function handleSearchKey(e) {
       return;
     }
 
-    setStatus('Platform bilgileri alınıyor', true);
+    setStatus(nextLoadMsg(), true);
     const enriched = await enrichItems(results.slice(0, 20), type);
 
     // Filtreler
@@ -1426,7 +1429,7 @@ async function startSearch() {
   document.getElementById('result-bar').style.display = 'none';
   window._moreAvailable = false;
   hideError();
-  setStatus('İçerikler çekiliyor', true);
+  setStatus(nextLoadMsg(), true);
 
   try {
     const endpoint = currentParams.type === 'tv' ? '/tv' : '/movie';
@@ -1442,7 +1445,7 @@ async function startSearch() {
       return;
     }
 
-    setStatus('Platform bilgileri alınıyor', true);
+    setStatus(nextLoadMsg(), true);
     let enriched = await enrichItems(allItems, currentTab);
     enriched = applyOscarFilter(enriched, currentParams.oscar);
     enriched = applyEmmyFilter(enriched, currentParams.emmy);
