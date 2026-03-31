@@ -229,7 +229,7 @@
 
   <div class="search-bar-wrap" style="margin-bottom:1.5rem;">
     <div class="person-wrap">
-      <input type="text" class="search-bar-input" id="person-input" placeholder="Film, dizi, yönetmen veya oyuncu ara..." autocomplete="off" oninput="searchPerson(this.value)" onblur="setTimeout(()=>closeSuggestions(),200)" />
+      <input type="text" class="search-bar-input" id="person-input" placeholder="Film, dizi, yönetmen veya oyuncu ara..." autocomplete="off" oninput="searchPerson(this.value)" onblur="setTimeout(()=>closeSuggestions(),200)" onkeydown="handleSearchKey(event)" />
       <div class="person-suggestions" id="person-suggestions"></div>
     </div>
     <div id="all-badges-search"></div>
@@ -671,11 +671,17 @@ async function searchByPerson(personId, personName, type) {
     setStatus('Platform bilgileri alınıyor', true);
     const enriched = await enrichItems(filtered, type);
 
+    // Oscar / Emmy filtresi
+    const oscarVal = document.getElementById('oscar-filter')?.value || '';
+    const emmyVal = document.getElementById('emmy-filter')?.value || '';
+    let result = enriched;
+    result = applyOscarFilter(result, oscarVal);
+    result = applyEmmyFilter(result, emmyVal);
+
     // Platform filtresi
     const selectedPlatformIds = selectedPlatforms.map(p => p.id);
-    let result = enriched;
     if (selectedPlatformIds.length < ALL_PLATFORMS.length) {
-      result = enriched.filter(m => m.providers.some(p => 
+      result = result.filter(m => m.providers.some(p => 
         selectedPlatformIds.includes(String(p.provider_id)) || selectedPlatformIds.includes(p.provider_id)
       ));
     }
@@ -1158,6 +1164,89 @@ async function submitNotify() {
     btn.disabled = false;
     btn.textContent = 'Haber ver';
   }
+}
+
+async function handleSearchKey(e) {
+  if (e.key !== 'Enter') return;
+  const query = document.getElementById('person-input').value.trim();
+  if (!query) return;
+
+  closeSuggestions();
+  document.getElementById('person-input').value = '';
+
+  const btn = document.getElementById('search-btn');
+  btn.disabled = true;
+  btn.textContent = 'Aranıyor...';
+  document.getElementById('grid').innerHTML = '';
+  document.getElementById('result-bar').style.display = 'none';
+  document.getElementById('more-btn').style.display = 'none';
+  document.getElementById('all-badges-search').innerHTML = 
+    `<div class="content-badge" onclick="clearSearch()">${query} <span class="person-badge-x">×</span></div>`;
+  hideError();
+  setStatus('Aranıyor...', true);
+
+  try {
+    const type = currentTab;
+    const endpoint = type === 'tv' ? 'tv' : 'movie';
+    const dateField = type === 'tv' ? 'first_air_date' : 'release_date';
+
+    const [movieRes, tvRes] = await Promise.all([
+      tmdbFetch('/search/movie', `query=${encodeURIComponent(query)}&language=en-US&page=1`),
+      tmdbFetch('/search/tv', `query=${encodeURIComponent(query)}&language=en-US&page=1`)
+    ]);
+
+    let results = [];
+    if (type === 'movie') {
+      results = movieRes.results || [];
+    } else if (type === 'tv') {
+      results = tvRes.results || [];
+    }
+
+    // Puan filtresi
+    const minRating = parseFloat(document.getElementById('min-rating').value);
+    results = results.filter(m => (m.vote_average || 0) >= minRating && (m.vote_count || 0) >= 50);
+
+    if (!results.length) {
+      setStatus('Sonuç bulunamadı.', false);
+      btn.disabled = false; btn.textContent = 'Ara';
+      return;
+    }
+
+    setStatus('Platform bilgileri alınıyor', true);
+    const enriched = await enrichItems(results.slice(0, 20), type);
+
+    // Filtreler
+    const trFilter = document.getElementById('tr-filter').value;
+    const oscarVal = document.getElementById('oscar-filter')?.value || '';
+    const emmyVal = document.getElementById('emmy-filter')?.value || '';
+    let final = enriched;
+    final = applyOscarFilter(final, oscarVal);
+    final = applyEmmyFilter(final, emmyVal);
+    final = applyTrFilter(final, trFilter);
+
+    setStatus('', false);
+    totalLoaded = final.length;
+    document.getElementById('result-bar').style.display = 'flex';
+    updateCount();
+
+    if (!final.length) {
+      setStatus('Bu kriterlere uygun içerik bulunamadı.', false);
+    } else {
+      renderCards(final, type);
+    }
+
+    // GA
+    if (typeof gtag !== 'undefined') {
+      gtag('event', 'search_query', { query, query_type: 'title_search' });
+    }
+
+  } catch(e) {
+    setStatus('', false);
+    showError('Hata: ' + e.message);
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Ara';
 }
 
 function closeSuggestions() {
