@@ -1495,12 +1495,7 @@ async function loadMore() {
     renderCards(enriched, currentParams.type);
     updateCount();
 
-    if (currentPage >= totalPages) {
-      window._moreAvailable = false;
-    } else {
-      moreBtn.disabled = false;
-      moreBtn.textContent = 'Daha fazla yükle';
-    }
+    window._moreAvailable = currentPage < totalPages;
   } catch(e) {
     showError('Yükleme hatası: ' + e.message);
     window._moreAvailable = currentPage < totalPages;
