@@ -238,6 +238,7 @@
   <div class="tabs">
     <button class="tab active" id="tab-movie" onclick="switchTab('movie')">Film</button>
     <button class="tab" id="tab-tv" onclick="switchTab('tv')">Dizi</button>
+    <button class="tab" id="tab-cinema" onclick="switchTab('cinema')">Sinemada</button>
   </div>
 
   <div class="filters">
@@ -610,6 +611,98 @@ function selectPerson(id, name, role) {
       query_type: 'person',
       department: role
     });
+  }
+}
+
+async function searchCinema() {
+  const btn = document.getElementById('search-btn');
+  btn.disabled = true;
+  btn.textContent = 'Aranıyor...';
+  document.getElementById('grid').innerHTML = '';
+  document.getElementById('result-bar').style.display = 'none';
+  window._moreAvailable = false;
+  hideError();
+  setStatus(nextLoadMsg(), true);
+
+  try {
+    const minRating = document.getElementById('min-rating').value;
+    const genre = document.getElementById('genre').value;
+    const minYear = document.getElementById('min-year').value;
+
+    let q = `language=en-US&region=TR&vote_count.gte=10&vote_average.gte=${minRating}&sort_by=popularity.desc`;
+    if (genre && genre !== 'sport') q += `&with_genres=${genre}`;
+    if (genre === 'sport') q += `&with_keywords=6075`;
+    if (minYear) q += `&primary_release_date.gte=${minYear}-01-01`;
+
+    const data = await tmdbFetch('/movie/now_playing', q);
+    const movies = data.results || [];
+
+    if (!movies.length) {
+      setStatus('Şu an vizyonda film bulunamadı.', false);
+      btn.disabled = false; btn.textContent = 'Ara';
+      return;
+    }
+
+    setStatus(nextLoadMsg(), true);
+
+    const enriched = movies.map(m => ({ ...m, providers: [], isCinema: true }));
+
+    setStatus('', false);
+    totalLoaded = enriched.length;
+    document.getElementById('result-bar').style.display = 'flex';
+    updateCount();
+    renderCinemaCards(enriched);
+
+  } catch(e) {
+    setStatus('', false);
+    showError('Hata: ' + e.message);
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Ara';
+}
+
+function renderCinemaCards(movies) {
+  const grid = document.getElementById('grid');
+  for (const m of movies) {
+    const title = m.title || m.original_title;
+    const year = m.release_date ? m.release_date.split('-')[0] : '?';
+    const rating = m.vote_average.toFixed(1);
+    const rt = m.runtime;
+    const runtimeStr = rt ? ` · ${Math.floor(rt/60) > 0 ? Math.floor(rt/60)+'s ' : ''}${rt%60 > 0 ? rt%60+'d' : ''}` : '';
+    const poster = m.poster_path
+      ? `<img class="poster" src="https://image.tmdb.org/t/p/w300${m.poster_path}" alt="${title}" loading="lazy" />`
+      : `<div class="poster-placeholder">Poster yok</div>`;
+
+    const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(title + ' sinema seans')}`;
+    
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.onclick = (e) => {
+      if (e.target.closest('.cinema-google-btn')) return;
+      openDetailModal(m.id, 'movie', title, m.poster_path || '', year, m.vote_average, []);
+    };
+    card.innerHTML = `
+      ${poster}
+      <div class="card-body">
+        <div class="card-title">${title}</div>
+        <div class="card-meta">
+          <span class="card-year">${year}${runtimeStr}</span>
+          <span class="card-rating">★ ${rating}</span>
+        </div>
+        <div class="providers" style="flex-direction:column;align-items:flex-start;gap:6px;">
+          <span class="no-provider" style="font-size:10px;line-height:1.4;">Şu an bazı salonlarda var, ama hangi salonda olduğu bizde henüz yok.</span>
+          <a class="cinema-google-btn share-btn" href="${searchUrl}" target="_blank" style="color:var(--accent);font-size:11px;text-decoration:none;">
+            Google'da ara →
+          </a>
+        </div>
+        <button class="share-btn" onclick="shareContent('https://neizlesem.co?id=${m.id}&type=movie', '${title.replace(/'/g, "\'")}')">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+          Paylaş
+        </button>
+      </div>
+    `;
+    grid.appendChild(card);
   }
 }
 
@@ -1274,7 +1367,7 @@ function closeSuggestions() {
 }
 
 function populateGenres() {
-  const genres = currentTab === 'movie' ? MOVIE_GENRES : TV_GENRES;
+  const genres = (currentTab === 'movie' || currentTab === 'cinema') ? MOVIE_GENRES : TV_GENRES;
   document.getElementById('genre').innerHTML = genres.map(g =>
     `<option value="${g.value}">${g.label}</option>`
   ).join('');
@@ -1413,6 +1506,12 @@ async function startSearch() {
 
   if (selectedContent) {
     selectContent(selectedContent.id, selectedContent.title, selectedContent.type, selectedContent.poster, selectedContent.year, selectedContent.rating);
+    return;
+  }
+
+  // Sinema tabı
+  if (currentTab === 'cinema') {
+    await searchCinema();
     return;
   }
 
