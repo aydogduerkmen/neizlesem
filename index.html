@@ -629,7 +629,8 @@ async function searchCinema() {
     const genre = document.getElementById('genre').value;
     const minYear = document.getElementById('min-year').value;
 
-    let q = `language=en-US&region=TR&vote_count.gte=10&vote_average.gte=${minRating}&sort_by=popularity.desc`;
+    const sortBy = document.getElementById('sort').value;
+    let q = `language=en-US&region=TR&vote_count.gte=10&vote_average.gte=${minRating}&sort_by=${sortBy}`;
     if (genre && genre !== 'sport') q += `&with_genres=${genre}`;
     if (genre === 'sport') q += `&with_keywords=6075`;
     if (minYear) q += `&primary_release_date.gte=${minYear}-01-01`;
