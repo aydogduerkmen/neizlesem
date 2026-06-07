@@ -1006,6 +1006,18 @@ async function openModal(m) {
   content.className = 'modal-loading';
   content.innerHTML = 'Yükleniyor...';
 
+  // GA: detail_open event
+  if (typeof gtag !== 'undefined') {
+    const _type = currentTab === 'tv' ? 'tv' : 'movie';
+    gtag('event', 'detail_open', {
+      content_id: m.id,
+      content_title: _type === 'tv' ? (m.name || m.original_name) : m.title,
+      content_type: _type,
+      release_year: m.release_year || (m.release_date || m.first_air_date || '').split('-')[0] || '',
+      rating: (m.vote_average || 0).toFixed(1)
+    });
+  }
+
   try {
     const type = currentTab === 'tv' ? 'tv' : 'movie';
     const endpoint = type;
