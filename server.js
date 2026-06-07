@@ -112,9 +112,19 @@ const server = http.createServer(async (req, res) => {
     res.end(JSON.stringify(data));
   };
 
-  // Health check (Render'ı uyanık tutmak için)
+  // Health check (Render'ı + Supabase'i uyanık tutmak için)
+  // watchlist'ten 1 satır çekerek Supabase'in 7 günlük hareketsizlik
+  // nedeniyle duraklamasını engelliyoruz.
   if (url.pathname === '/api/health') {
-    return json(200, { status: 'ok' });
+    try {
+      const result = await supabaseRequest('watchlist?select=id&limit=1');
+      if (result.status >= 400) {
+        return json(500, { status: 'error', db: 'down', detail: result.body });
+      }
+      return json(200, { status: 'ok', db: 'up', time: new Date().toISOString() });
+    } catch (e) {
+      return json(500, { status: 'error', message: e.message });
+    }
   }
 
   // TMDB proxy
