@@ -1328,7 +1328,14 @@ async function searchByTitle(query) {
 
     // 2) En iyi eşleşen kişinin (yönetmen/oyuncu) yapımları
     let personItems = [];
-    const topPerson = (personRes.results || [])[0];
+    // En iyi eşleşen kişi: ilk sonucu körü körüne alma — TMDB bazen sönük bir
+    // birebir ad eşleşmesini (örn. filmsiz "Russell Crow") en üste koyabiliyor.
+    // Bunun yerine sonuçlar arasından EN POPÜLER kişiyi seç (aranan kişi neredeyse
+    // her zaman en popüler olandır).
+    const personResults = personRes.results || [];
+    const topPerson = personResults.length
+      ? personResults.reduce((best, p) => ((p.popularity || 0) > (best.popularity || 0) ? p : best), personResults[0])
+      : null;
     if (topPerson) {
       try {
         const cd = await tmdbFetch(`/person/${topPerson.id}/${creditsType}`, 'language=en-US');
