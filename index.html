@@ -63,7 +63,10 @@
 
   .btn-more { display: none !important; }
   .scroll-sentinel { height: 60px; display: flex; align-items: center; justify-content: center; }
-  .scroll-loading { font-size: 13px; color: var(--text-faint); display: none; }
+  .scroll-loading { display: none; align-items: center; justify-content: center; gap: 8px; font-size: 13px; color: var(--text-faint); }
+  .scroll-loading.active { display: flex; }
+  .scroll-spinner { width: 14px; height: 14px; border: 2px solid rgba(232,200,122,0.25); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
 
   .status { text-align: center; padding: 4rem 0; color: var(--text-muted); font-size: 14px; }
   .error { background: rgba(224,112,112,0.08); border: 1px solid rgba(224,112,112,0.2); border-radius: var(--radius-sm); color: var(--red); font-size: 13px; padding: 10px 14px; margin-bottom: 1.5rem; display: none; }
@@ -368,7 +371,7 @@
       <div id="modal-content" class="modal-loading">Yükleniyor...</div>
     </div>
   </div>
-  <div class="scroll-sentinel" id="scroll-sentinel"><span class="scroll-loading" id="scroll-loading">Yükleniyor...</span></div>
+  <div class="scroll-sentinel" id="scroll-sentinel"><span class="scroll-loading" id="scroll-loading"><span class="scroll-spinner"></span>Aranıyor...</span></div>
 
 </div>
 
@@ -476,39 +479,9 @@ function switchTab(tab) {
   document.getElementById('emmy-wrap').style.display = tab === 'tv' ? '' : 'none';
   document.getElementById('emmy-filter').value = '';
   populateGenres();
-
-window._moreAvailable = false;
-window._loadingMore = false;
-
-const sentinel = document.getElementById('scroll-sentinel');
-if (sentinel) {
-  const observer = new IntersectionObserver((entries) => {
-    if (entries[0].isIntersecting && window._moreAvailable && !window._loadingMore) {
-      loadMore();
-    }
-  }, { threshold: 0.1 });
-  observer.observe(sentinel);
-}
-
-// URL'den film yükle
-(async function() {
-  const params = new URLSearchParams(window.location.search);
-  const id = params.get('id');
-  const type = params.get('type');
-  if (id && type) {
-    try {
-      const endpoint = type === 'tv' ? 'tv' : 'movie';
-      const d = await tmdbFetch(`/${endpoint}/${id}`, 'language=en-US');
-      if (d && (d.title || d.name)) {
-        const title = d.title || d.name;
-        const poster = d.poster_path || '';
-        const year = (d.release_date || d.first_air_date || '').split('-')[0];
-        const rating = d.vote_average || 0;
-        selectContent(parseInt(id), title, type, poster, year, rating);
-      }
-    } catch(e) {}
-  }
-})();
+  // sekme değişince devam-yükleme durumunu sıfırla (observer kurulumu dosya sonunda, tek sefer)
+  window._moreAvailable = false;
+  window._loadingMore = false;
   document.getElementById('sort').innerHTML = tab === 'movie'
     ? `<option value="vote_average.desc">En Yüksek Puan</option>
        <option value="popularity.desc">En Popüler</option>
@@ -1513,6 +1486,12 @@ function updateCount() {
 }
 
 async function startSearch() {
+  // Yeni arama: devam eden arka plan yüklemesini geçersiz kıl ve göstergeyi sıfırla
+  window._searchGen = (window._searchGen || 0) + 1;
+  window._loadingMore = false;
+  window._moreAvailable = false;
+  setScrollLoading(false);
+
   const genreVal = document.getElementById('genre').value;
   currentParams = {
     type: currentTab,
@@ -1596,9 +1575,27 @@ async function startSearch() {
   btn.textContent = 'Ara';
 }
 
+// bir aramada arka planda taranacak azami discover sayfası (güvenlik sınırı; gerekirse artır)
+const SESSION_PAGE_CAP = 30;
+
+function setScrollLoading(on) {
+  const el = document.getElementById('scroll-loading');
+  if (el) el.classList.toggle('active', on);
+}
+
+function isSentinelVisible() {
+  const s = document.getElementById('scroll-sentinel');
+  if (!s) return false;
+  const r = s.getBoundingClientRect();
+  return r.top < window.innerHeight && r.bottom > 0;
+}
+
 async function loadMore() {
+  if (window._loadingMore || !window._moreAvailable) return;
+  const gen = window._searchGen;
   window._loadingMore = true;
-  document.getElementById('scroll-loading').style.display = 'block';
+  setScrollLoading(true);
+
   const endpoint = currentParams.type === 'tv' ? '/tv' : '/movie';
   const MIN_RESULTS = 10;
   const MAX_EXTRA_PAGES = 8;
@@ -1607,7 +1604,7 @@ async function loadMore() {
     let enriched = [];
     let pagesChecked = 0;
 
-    while (enriched.length < MIN_RESULTS && currentPage < totalPages && pagesChecked < MAX_EXTRA_PAGES) {
+    while (enriched.length < MIN_RESULTS && currentPage < totalPages && currentPage < SESSION_PAGE_CAP && pagesChecked < MAX_EXTRA_PAGES) {
       currentPage++;
       pagesChecked++;
       const data = await tmdbFetch(`/discover${endpoint}`, buildQuery(currentParams, currentPage));
@@ -1618,16 +1615,28 @@ async function loadMore() {
       batch = applyDurationFilter(batch, currentParams.duration);
       batch = applyTrFilter(batch, currentParams.trFilter);
       enriched = enriched.concat(batch);
+      if (gen !== window._searchGen) { window._loadingMore = false; return; }
     }
 
     totalLoaded += enriched.length;
     renderCards(enriched, currentParams.type);
     updateCount();
 
-    window._moreAvailable = currentPage < totalPages;
+    window._moreAvailable = currentPage < totalPages && currentPage < SESSION_PAGE_CAP;
   } catch(e) {
     showError('Yükleme hatası: ' + e.message);
-    window._moreAvailable = currentPage < totalPages;
+    window._moreAvailable = currentPage < totalPages && currentPage < SESSION_PAGE_CAP;
+  } finally {
+    window._loadingMore = false;
+  }
+
+  // Arka planda devam: daha fazlası varsa ve sentinel hâlâ görünürdeyse
+  // (örn. seyrek bir filtrede yeni kart eklenmediği için ekran dolmadıysa) kendiliğinden sürdür.
+  // Ekran dolduysa observer, kullanıcı aşağı kaydırınca tekrar tetikler.
+  if (window._moreAvailable && gen === window._searchGen && isSentinelVisible()) {
+    loadMore();
+  } else {
+    setScrollLoading(false);
   }
 }
 
@@ -1652,6 +1661,7 @@ populateGenres();
 
 window._moreAvailable = false;
 window._loadingMore = false;
+window._searchGen = 0;
 
 const sentinel = document.getElementById('scroll-sentinel');
 if (sentinel) {
