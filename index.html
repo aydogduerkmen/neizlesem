@@ -493,6 +493,7 @@ function switchTab(tab) {
 
 let selectedPerson = null;
 let selectedContent = null;
+let selectedQuery = null;
 let searchTimeout = null;
 
 async function searchPerson(query) {
@@ -584,6 +585,7 @@ async function searchPerson(query) {
 function selectPerson(id, name, role) {
   selectedPerson = { id, name, role };
   selectedContent = null;
+  selectedQuery = null;
   document.getElementById('person-input').value = '';
   document.getElementById('person-suggestions').classList.remove('open');
   const wrap = document.getElementById('all-badges-search');
@@ -819,6 +821,7 @@ async function fetchPersonMovieIds(personId, type) {
 async function selectContent(id, title, type, poster, year, rating) {
   selectedContent = { id, title, type, poster, year, rating };
   selectedPerson = null;
+  selectedQuery = null;
   document.getElementById('person-input').value = '';
   document.getElementById('person-suggestions').classList.remove('open');
 
@@ -908,6 +911,7 @@ async function selectContent(id, title, type, poster, year, rating) {
 function clearSearch() {
   selectedPerson = null;
   selectedContent = null;
+  selectedQuery = null;
   document.getElementById('all-badges-search').innerHTML = '';
   document.getElementById('person-input').value = '';
   document.getElementById('grid').innerHTML = '';
@@ -1283,6 +1287,14 @@ async function handleSearchKey(e) {
   if (e.key !== 'Enter') return;
   const query = document.getElementById('person-input').value.trim();
   if (!query) return;
+  await searchByTitle(query);
+}
+
+async function searchByTitle(query) {
+  // Serbest metin aramasını durum olarak sakla: "Ara" butonu da aynı aramayı tekrarlasın
+  selectedQuery = query;
+  selectedPerson = null;
+  selectedContent = null;
 
   closeSuggestions();
   document.getElementById('person-input').value = '';
@@ -1332,7 +1344,21 @@ async function handleSearchKey(e) {
     const trFilter = document.getElementById('tr-filter').value;
     const oscarVal = document.getElementById('oscar-filter')?.value || '';
     const emmyVal = document.getElementById('emmy-filter')?.value || '';
+    const minYearVal = document.getElementById('min-year').value;
+    const genreVal = document.getElementById('genre').value;
+    const durationVal = document.getElementById('duration').value;
     let final = enriched;
+    if (minYearVal) {
+      final = final.filter(m => {
+        const y = parseInt(m.release_year || ((m.release_date || m.first_air_date || '').split('-')[0]));
+        return y && y >= parseInt(minYearVal);
+      });
+    }
+    if (genreVal && genreVal !== 'sport') {
+      const gid = parseInt(genreVal);
+      final = final.filter(m => Array.isArray(m.genre_ids) && m.genre_ids.includes(gid));
+    }
+    final = applyDurationFilter(final, durationVal);
     final = applyOscarFilter(final, oscarVal);
     final = applyEmmyFilter(final, emmyVal);
     final = applyTrFilter(final, trFilter);
@@ -1512,6 +1538,14 @@ async function startSearch() {
 
   if (selectedContent) {
     selectContent(selectedContent.id, selectedContent.title, selectedContent.type, selectedContent.poster, selectedContent.year, selectedContent.rating);
+    return;
+  }
+
+  // Serbest metin araması aktifse (Enter ile ya da kutuda yazılı bırakılmışsa) başlık araması yap
+  const typed = document.getElementById('person-input').value.trim();
+  const titleQuery = typed || selectedQuery;
+  if (titleQuery && currentTab !== 'cinema') {
+    await searchByTitle(titleQuery);
     return;
   }
 
