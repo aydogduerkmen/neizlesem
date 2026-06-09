@@ -1305,62 +1305,101 @@ async function searchByTitle(query) {
   document.getElementById('grid').innerHTML = '';
   document.getElementById('result-bar').style.display = 'none';
   window._moreAvailable = false;
-  document.getElementById('all-badges-search').innerHTML = 
+  document.getElementById('all-badges-search').innerHTML =
     `<div class="content-badge" onclick="clearSearch()">${query} <span class="person-badge-x">×</span></div>`;
   hideError();
   setStatus('Aranıyor...', true);
 
   try {
     const type = currentTab;
-    const endpoint = type === 'tv' ? 'tv' : 'movie';
     const dateField = type === 'tv' ? 'first_air_date' : 'release_date';
+    const enc = encodeURIComponent(query);
+    const searchEndpoint = type === 'tv' ? '/search/tv' : '/search/movie';
+    const creditsType = type === 'tv' ? 'tv_credits' : 'movie_credits';
 
-    const [movieRes, tvRes] = await Promise.all([
-      tmdbFetch('/search/movie', `query=${encodeURIComponent(query)}&language=en-US&page=1`),
-      tmdbFetch('/search/tv', `query=${encodeURIComponent(query)}&language=en-US&page=1`)
+    // 1) Başlık araması + kişi araması paralel
+    const [titleRes, personRes] = await Promise.all([
+      tmdbFetch(searchEndpoint, `query=${enc}&language=en-US&page=1`),
+      tmdbFetch('/search/person', `query=${enc}&language=en-US&page=1`)
     ]);
 
-    let results = [];
-    if (type === 'movie') {
-      results = movieRes.results || [];
-    } else if (type === 'tv') {
-      results = tvRes.results || [];
+    // Başlıkta eşleşenler
+    const titleItems = (titleRes.results || []).map(m => ({ ...m, _src: 'title' }));
+
+    // 2) En iyi eşleşen kişinin (yönetmen/oyuncu) yapımları
+    let personItems = [];
+    const topPerson = (personRes.results || [])[0];
+    if (topPerson) {
+      try {
+        const cd = await tmdbFetch(`/person/${topPerson.id}/${creditsType}`, 'language=en-US');
+        const all = [...(cd.cast || []), ...(cd.crew || [])];
+        const seenP = new Set();
+        personItems = all
+          .filter(m => { if (seenP.has(m.id)) return false; seenP.add(m.id); return true; })
+          .map(m => ({ ...m, _src: 'person' }));
+      } catch(e) {}
     }
 
-    // Puan filtresi
-    const minRating = parseFloat(document.getElementById('min-rating').value);
-    results = results.filter(m => (m.vote_average || 0) >= minRating);
-
-    if (!results.length) {
-      setStatus('Sonuç bulunamadı.', false);
-      btn.disabled = false; btn.textContent = 'Ara';
-      return;
+    // 3) Birleştir + tekrarları kaldır (başlık eşleşmesi kişi-kredisine göre öncelikli)
+    const byId = new Map();
+    for (const m of [...titleItems, ...personItems]) {
+      if (!byId.has(m.id)) byId.set(m.id, m);
     }
+    let merged = [...byId.values()];
 
-    setStatus(nextLoadMsg(), true);
-    const enriched = await enrichItems(results.slice(0, 20), type);
-
-    // Filtreler
-    const trFilter = document.getElementById('tr-filter').value;
-    const oscarVal = document.getElementById('oscar-filter')?.value || '';
-    const emmyVal = document.getElementById('emmy-filter')?.value || '';
+    // 4) Ham alanlar üzerinden ön filtreler
+    const minRating = parseFloat(document.getElementById('min-rating').value) || 0;
     const minYearVal = document.getElementById('min-year').value;
     const genreVal = document.getElementById('genre').value;
-    const durationVal = document.getElementById('duration').value;
-    let final = enriched;
+    merged = merged.filter(m => (m.vote_average || 0) >= minRating);
+    // kişi kredilerindeki gürültüyü (kamhabra/az oylu kayıtlar) ele; başlık eşleşmelerine dokunma
+    merged = merged.filter(m => m._src === 'title' || (m.vote_count || 0) >= 25);
     if (minYearVal) {
-      final = final.filter(m => {
-        const y = parseInt(m.release_year || ((m.release_date || m.first_air_date || '').split('-')[0]));
+      merged = merged.filter(m => {
+        const y = parseInt((m[dateField] || '').split('-')[0]);
         return y && y >= parseInt(minYearVal);
       });
     }
     if (genreVal && genreVal !== 'sport') {
       const gid = parseInt(genreVal);
-      final = final.filter(m => Array.isArray(m.genre_ids) && m.genre_ids.includes(gid));
+      merged = merged.filter(m => Array.isArray(m.genre_ids) && m.genre_ids.includes(gid));
     }
+
+    // 5) Sırala (zenginleştirmeden önce ham veriyle) ve sınırla
+    const sortBy = document.getElementById('sort').value;
+    if (sortBy === 'vote_average.desc') {
+      merged.sort((a, b) => (b.vote_average || 0) - (a.vote_average || 0));
+    } else if (sortBy.includes('release_date') || sortBy.includes('first_air_date')) {
+      merged.sort((a, b) => (b[dateField] || '').localeCompare(a[dateField] || ''));
+    } else {
+      merged.sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
+    }
+    merged = merged.slice(0, 40);
+
+    if (!merged.length) {
+      setStatus('Sonuç bulunamadı.', false);
+      btn.disabled = false; btn.textContent = 'Ara';
+      return;
+    }
+
+    // 6) Zenginleştir (sağlayıcılar + süre)
+    setStatus(nextLoadMsg(), true);
+    let final = await enrichItems(merged, type);
+
+    // 7) Zenginleştirilmiş veri gerektiren filtreler
+    const durationVal = document.getElementById('duration').value;
+    const oscarVal = document.getElementById('oscar-filter')?.value || '';
+    const emmyVal = document.getElementById('emmy-filter')?.value || '';
+    const trFilter = document.getElementById('tr-filter').value;
     final = applyDurationFilter(final, durationVal);
     final = applyOscarFilter(final, oscarVal);
     final = applyEmmyFilter(final, emmyVal);
+    const selectedPlatformIds = selectedPlatforms.map(p => p.id);
+    if (selectedPlatformIds.length && selectedPlatformIds.length < ALL_PLATFORMS.length) {
+      final = final.filter(m => m.providers.some(p =>
+        selectedPlatformIds.includes(String(p.id)) || selectedPlatformIds.includes(p.id)
+      ));
+    }
     final = applyTrFilter(final, trFilter);
 
     setStatus('', false);
@@ -1376,7 +1415,7 @@ async function searchByTitle(query) {
 
     // GA
     if (typeof gtag !== 'undefined') {
-      gtag('event', 'search_query', { query, query_type: 'title_search' });
+      gtag('event', 'search_query', { query, query_type: 'combined_search' });
     }
 
   } catch(e) {
@@ -1386,6 +1425,7 @@ async function searchByTitle(query) {
 
   btn.disabled = false;
   btn.textContent = 'Ara';
+  window._moreAvailable = false;
 }
 
 function closeSuggestions() {
@@ -1433,7 +1473,7 @@ async function enrichItems(items, type) {
         for (const p of all) {
           if (!seen.has(p.provider_id)) {
             seen.add(p.provider_id);
-            providers.push({ name: p.provider_name, logo: p.logo_path });
+            providers.push({ id: p.provider_id, name: p.provider_name, logo: p.logo_path });
           }
         }
       }
