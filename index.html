@@ -255,7 +255,7 @@
   <div class="tabs">
     <button class="tab active" id="tab-movie" onclick="switchTab('movie')">Film</button>
     <button class="tab" id="tab-tv" onclick="switchTab('tv')">Dizi</button>
-    <button class="tab" id="tab-cinema" onclick="switchTab('cinema')">Sinemada</button>
+    <button class="tab" id="tab-cinema" onclick="switchTab('cinema')">Sinema</button>
   </div>
 
   <div class="filters">
@@ -456,9 +456,26 @@ const TV_GENRES = [
 ];
 
 let currentTab = 'movie';
-let _loadMsgIdx = 0;
-const LOAD_MESSAGES = ['İçerikler çekiliyor...', 'Sabreden derviş muradına ermiş...'];
-function nextLoadMsg() { return LOAD_MESSAGES[_loadMsgIdx++ % LOAD_MESSAGES.length]; }
+let _loadTimers = [];
+let _firstLoadDone = false;
+const FIRST_LOAD_STAGES = [
+  ['ilk arama biraz uzun sürebiliyor...', 0],
+  ['uzun dediğim de 15sn falan...', 5000],
+  ['devamında akıcaz...', 11000],
+];
+const WARM_LOAD_STAGES = [
+  ['içerikler çekiliyor...', 0],
+  ['sabreden derviş muradına ermiş...', 6000],
+];
+function clearLoadTimers() { _loadTimers.forEach(clearTimeout); _loadTimers = []; }
+function startLoadingStatus() {
+  clearLoadTimers();
+  const stages = _firstLoadDone ? WARM_LOAD_STAGES : FIRST_LOAD_STAGES;
+  stages.forEach(([msg, delay]) => {
+    if (delay === 0) { setStatus(msg, true); }
+    else { _loadTimers.push(setTimeout(() => setStatus(msg, true, true), delay)); }
+  });
+}
 let currentPage = 1;
 let totalPages = 1;
 let currentParams = {};
@@ -611,7 +628,7 @@ async function searchCinema() {
   document.getElementById('result-bar').style.display = 'none';
   window._moreAvailable = false;
   hideError();
-  setStatus(nextLoadMsg(), true);
+  startLoadingStatus();
 
   try {
     const minRating = document.getElementById('min-rating').value;
@@ -633,7 +650,7 @@ async function searchCinema() {
       return;
     }
 
-    setStatus(nextLoadMsg(), true);
+    startLoadingStatus();
 
     const enriched = movies.map(m => ({ ...m, providers: [], isCinema: true }));
 
@@ -767,7 +784,7 @@ async function searchByPerson(personId, personName, type) {
     }
     filtered = filtered.slice(0, 40);
 
-    setStatus(nextLoadMsg(), true);
+    startLoadingStatus();
     const enriched = await enrichItems(filtered, type);
 
     // Oscar / Emmy filtresi
@@ -1390,7 +1407,7 @@ async function searchByTitle(query) {
     }
 
     // 6) Zenginleştir (sağlayıcılar + süre)
-    setStatus(nextLoadMsg(), true);
+    startLoadingStatus();
     let final = await enrichItems(merged, type);
 
     // 7) Zenginleştirilmiş veri gerektiren filtreler
@@ -1615,7 +1632,7 @@ async function startSearch() {
   document.getElementById('result-bar').style.display = 'none';
   window._moreAvailable = false;
   hideError();
-  setStatus(nextLoadMsg(), true);
+  startLoadingStatus();
 
   try {
     const endpoint = currentParams.type === 'tv' ? '/tv' : '/movie';
@@ -1631,7 +1648,7 @@ async function startSearch() {
       return;
     }
 
-    setStatus(nextLoadMsg(), true);
+    startLoadingStatus();
     let enriched = await enrichItems(allItems, currentTab);
     enriched = applyOscarFilter(enriched, currentParams.oscar);
     enriched = applyEmmyFilter(enriched, currentParams.emmy);
@@ -1721,7 +1738,15 @@ async function loadMore() {
   }
 }
 
-function setStatus(msg, loading) {
+let _loadActive = false;
+function setStatus(msg, loading, _fromTimer) {
+  if (!_fromTimer) { clearLoadTimers(); }
+  if (loading) {
+    _loadActive = true;
+  } else {
+    if (_loadActive) { _firstLoadDone = true; }
+    _loadActive = false;
+  }
   const el = document.getElementById('status');
   el.style.display = msg ? 'block' : 'none';
   el.className = loading ? 'status loading-dots' : 'status';
