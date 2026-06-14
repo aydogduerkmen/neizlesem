@@ -115,16 +115,22 @@ const server = http.createServer(async (req, res) => {
   // Health check (Render'ı + Supabase'i uyanık tutmak için)
   // watchlist'ten 1 satır çekerek Supabase'in 7 günlük hareketsizlik
   // nedeniyle duraklamasını engelliyoruz.
+  //
+  // ÖNEMLİ: Bu endpoint Supabase hata verse bile DAİMA 200 döner.
+  // Sebep: cron-job.org art arda 5xx görünce cron'u otomatik "Inactive"
+  // yapıyor. Keepalive cron'u devre dışı kalınca Supabase'i uyandıracak
+  // kimse kalmıyor -> proje kalıcı pause oluyor (yaşadığımız kısır döngü).
+  // O yüzden ping'i hep 200 tutup gerçek durumu "db" alanında bildiriyoruz;
+  // gerçek alarmı GitHub Actions keepalive job'ı (db != up ise kırmızı) veriyor.
   if (url.pathname === '/api/health') {
+    let db = 'unknown';
     try {
       const result = await supabaseRequest('watchlist?select=id&limit=1');
-      if (result.status >= 400) {
-        return json(500, { status: 'error', db: 'down', detail: result.body });
-      }
-      return json(200, { status: 'ok', db: 'up', time: new Date().toISOString() });
+      db = result.status >= 400 ? 'down' : 'up';
     } catch (e) {
-      return json(500, { status: 'error', message: e.message });
+      db = 'error';
     }
+    return json(200, { status: 'ok', db, time: new Date().toISOString() });
   }
 
   // TMDB proxy
