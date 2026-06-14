@@ -1,0 +1,31 @@
+name: keepalive
+
+# cron-job.org'a ek BAĞIMSIZ yedek pinger.
+# /api/health'i tetikler -> Render uyanır + Supabase'e sorgu gider (7 günlük
+# hareketsizlik sayacı sıfırlanır). Public repo olduğu için Actions ücretsiz,
+# /api/health herkese açık olduğu için secret gerekmez.
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'   # her ~10 dakikada bir (GitHub gecikmeli çalıştırabilir, normal)
+  workflow_dispatch:          # "Run workflow" ile elle de tetiklenebilir
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Health ping (Render + Supabase keepalive)
+        run: |
+          echo "Keepalive ping: $(date -u)"
+          # --max-time 90: Render cold-start'a tahammül
+          # --retry 2 --retry-delay 15: geçici timeout/5xx'te tekrar dene
+          http=$(curl -s -o /tmp/resp.json -w "%{http_code}" \
+            --max-time 90 --retry 2 --retry-delay 15 \
+            https://neizlesem.onrender.com/api/health)
+          echo "HTTP durum: $http"
+          echo "Yanıt: $(cat /tmp/resp.json)"
+          # Supabase up değilse job'ı kırmızı yap -> GitHub sana mail atsın
+          if ! grep -q '"db":"up"' /tmp/resp.json; then
+            echo "::error::Supabase 'up' değil — kontrol et!"
+            exit 1
+          fi
