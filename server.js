@@ -124,13 +124,22 @@ const server = http.createServer(async (req, res) => {
   // gerçek alarmı GitHub Actions keepalive job'ı (db != up ise kırmızı) veriyor.
   if (url.pathname === '/api/health') {
     let db = 'unknown';
+    let detail = null;
     try {
       const result = await supabaseRequest('watchlist?select=id&limit=1');
-      db = result.status >= 400 ? 'down' : 'up';
+      if (result.status >= 400) {
+        db = 'down';
+        detail = { status: result.status, body: result.body }; // teşhis için
+      } else {
+        db = 'up';
+      }
     } catch (e) {
       db = 'error';
+      detail = { message: e.message };
     }
-    return json(200, { status: 'ok', db, time: new Date().toISOString() });
+    const out = { status: 'ok', db, time: new Date().toISOString() };
+    if (detail) out.detail = detail; // sorun çözülünce sadece detail satırını silebilirsin
+    return json(200, out);
   }
 
   // TMDB proxy
