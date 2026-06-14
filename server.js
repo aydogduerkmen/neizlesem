@@ -126,7 +126,7 @@ const server = http.createServer(async (req, res) => {
     let db = 'unknown';
     let detail = null;
     try {
-      const result = await supabaseRequest('watchlist?select=id&limit=1');
+      const result = await supabaseRequest('watchlist?select=email&limit=1');
       if (result.status >= 400) {
         db = 'down';
         detail = { status: result.status, body: result.body }; // teşhis için
