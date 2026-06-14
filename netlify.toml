@@ -1,6 +1,21 @@
 [build]
   functions = "netlify/functions"
 
+  # KREDİ KORUMA: Netlify'da her production deploy 15 kredi yiyor (ücretsiz
+  # plan 300 kredi/ay). Frontend (index.html) ile backend (server.js) aynı
+  # repo'da olduğu için, server.js'i değiştirip push edince frontend hiç
+  # değişmese bile Netlify boşuna deploy ediyordu.
+  #
+  # Bu kural: yalnızca index.html son deploy'dan beri değiştiyse build yap;
+  # değişmediyse (server.js / package.json / .github vb. backend push'ları)
+  # deploy'u ATLA. git diff --quiet, değişiklik yoksa 0 döner -> Netlify build'i
+  # iptal eder. Backend zaten Render'da ayrı deploy oluyor, etkilenmez.
+  #
+  # NOT: İleride style.css, app.js, /assets gibi AYRI frontend dosyaları
+  # eklersen onları da bu satıra ekle, yoksa o değişiklikler canlıya çıkmaz:
+  #   ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF index.html style.css"
+  ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF index.html"
+
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/:splat"
